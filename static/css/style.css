@@ -1,0 +1,92 @@
+/* static/css/style.css */
+
+body {
+    padding-top: 56px; /* Adjust based on navbar height if it's fixed */
+    padding-bottom: 60px; /* Adjust based on footer height */
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+}
+
+.container {
+    flex: 1;
+}
+
+.footer {
+    background-color: #f8f9fa; /* Standard Bootstrap light gray */
+    position: fixed;
+    bottom: 0;
+    width: 100%;
+    line-height: 60px; /* Vertically center the text there */
+}
+
+
+/* Criminals List Table */
+.table th, .table td {
+    vertical-align: middle;
+}
+
+.table img.criminal-photo-thumbnail {
+    max-width: 75px;
+    max-height: 75px;
+    border-radius: 5px;
+    object-fit: cover;
+}
+
+/* Forms */
+.form-control-file {
+    padding: .375rem .75rem;
+}
+
+/* Make sure flash messages are styled distinctively */
+.alert-success {
+    color: #0f5132;
+    background-color: #d1e7dd;
+    border-color: #badbcc;
+}
+
+.alert-danger {
+    color: #842029;
+    background-color: #f8d7da;
+    border-color: #f5c2c7;
+}
+
+.alert-warning {
+    color: #664d03;
+    background-color: #fff3cd;
+    border-color: #ffecb5;
+}
+
+.alert-info {
+    color: #055160;
+    background-color: #cff4fc;
+    border-color: #b6effb;
+}
+
+/* Responsive images */
+img {
+    max-width: 100%;
+    height: auto;
+}
+
+.action-buttons form {
+    display: inline-block; /* Keep delete button on the same line */
+}
+.action-buttons .btn {
+    margin-right: 5px; /* Spacing between buttons */
+}
+
+.card-criminal-photo {
+    max-height: 300px;
+    object-fit: contain; /* Use 'contain' to see whole image, 'cover' to fill */
+    margin-bottom: 1rem;
+}
+
+.image-preview {
+    max-width: 200px;
+    max-height: 200px;
+    margin-top: 10px;
+    border: 1px solid #ddd;
+    padding: 5px;
+    object-fit: cover;
+}

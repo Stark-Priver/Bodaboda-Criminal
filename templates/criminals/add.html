@@ -1,0 +1,47 @@
+{% extends "layout.html" %}
+
+{% block title %}Add New Criminal - Boda Security{% endblock %}
+
+{% block content %}
+<h2>Add New Criminal</h2>
+<hr>
+<form method="POST" action="{{ url_for('add_criminal') }}" enctype="multipart/form-data">
+    <div class="mb-3">
+        <label for="name" class="form-label">Name <span class="text-danger">*</span></label>
+        <input type="text" class="form-control" id="name" name="name" required>
+    </div>
+    <div class="mb-3">
+        <label for="description" class="form-label">Description</label>
+        <textarea class="form-control" id="description" name="description" rows="3"></textarea>
+    </div>
+    <div class="mb-3">
+        <label for="photo" class="form-label">Photo <span class="text-danger">*</span></label>
+        <input type="file" class="form-control" id="photo" name="photo" accept="image/png, image/jpeg, image/gif" required onchange="previewImage(event)">
+        <div class="mt-2">
+            <img id="imagePreview" src="#" alt="Image Preview" class="image-preview" style="display:none;"/>
+        </div>
+    </div>
+    <button type="submit" class="btn btn-success">Add Criminal</button>
+    <a href="{{ url_for('list_criminals') }}" class="btn btn-secondary">Cancel</a>
+</form>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function previewImage(event) {
+    const reader = new FileReader();
+    reader.onload = function(){
+        const output = document.getElementById('imagePreview');
+        output.src = reader.result;
+        output.style.display = 'block';
+    };
+    if (event.target.files[0]) {
+        reader.readAsDataURL(event.target.files[0]);
+    } else {
+        const output = document.getElementById('imagePreview');
+        output.src = '#';
+        output.style.display = 'none';
+    }
+}
+</script>
+{% endblock %}

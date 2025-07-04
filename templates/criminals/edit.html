@@ -1,0 +1,62 @@
+{% extends "layout.html" %}
+
+{% block title %}Edit Criminal - {{ criminal.name }}{% endblock %}
+
+{% block content %}
+<h2>Edit Criminal: {{ criminal.name }}</h2>
+<hr>
+<form method="POST" action="{{ url_for('edit_criminal', criminal_id=criminal.id) }}" enctype="multipart/form-data">
+    <div class="mb-3">
+        <label for="name" class="form-label">Name <span class="text-danger">*</span></label>
+        <input type="text" class="form-control" id="name" name="name" value="{{ criminal.name }}" required>
+    </div>
+    <div class="mb-3">
+        <label for="description" class="form-label">Description</label>
+        <textarea class="form-control" id="description" name="description" rows="3">{{ criminal.description }}</textarea>
+    </div>
+
+    <div class="mb-3">
+        <label class="form-label">Current Photo</label>
+        <div>
+            {% if criminal.photo_path %}
+            <img src="{{ url_for('static', filename=criminal.photo_path) }}" alt="{{ criminal.name }}" class="img-thumbnail mb-2" style="max-width: 200px; max-height: 200px; object-fit: cover;">
+            {% else %}
+            <p>No current photo available.</p>
+            <img src="{{ url_for('static', filename='images/placeholder.png') }}" alt="No photo" class="img-thumbnail mb-2" style="max-width: 200px; max-height: 200px; object-fit: cover;">
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="mb-3">
+        <label for="photo" class="form-label">Upload New Photo (Optional)</label>
+        <input type="file" class="form-control" id="photo" name="photo" accept="image/png, image/jpeg, image/gif" onchange="previewNewImage(event)">
+        <small class="form-text text-muted">If you upload a new photo, it will replace the current one. A new face encoding will be generated.</small>
+        <div class="mt-2">
+            <img id="newImagePreview" src="#" alt="New Image Preview" class="image-preview" style="display:none;"/>
+        </div>
+    </div>
+
+    <button type="submit" class="btn btn-primary">Save Changes</button>
+    <a href="{{ url_for('list_criminals') }}" class="btn btn-secondary">Cancel</a>
+</form>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function previewNewImage(event) {
+    const reader = new FileReader();
+    reader.onload = function(){
+        const output = document.getElementById('newImagePreview');
+        output.src = reader.result;
+        output.style.display = 'block';
+    };
+    if (event.target.files[0]) {
+        reader.readAsDataURL(event.target.files[0]);
+    } else {
+        const output = document.getElementById('newImagePreview');
+        output.src = '#';
+        output.style.display = 'none';
+    }
+}
+</script>
+{% endblock %}
