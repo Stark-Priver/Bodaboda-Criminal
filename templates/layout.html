@@ -4,9 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{% block title %}Boda Criminal Detection{% endblock %}</title>
-    <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <!-- Custom CSS (optional) -->
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
 <body>
@@ -19,12 +17,15 @@
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav">
                     <li class="nav-item">
-                        <a class="nav-link {% if request.endpoint == 'list_criminals' or request.endpoint == 'add_criminal' or request.endpoint == 'edit_criminal' %}active{% endif %}" href="{{ url_for('list_criminals') }}">Manage Criminals</a>
+                        <a class="nav-link {% if request.endpoint in ['list_criminals', 'add_criminal', 'edit_criminal'] %}active{% endif %}" href="{{ url_for('list_criminals') }}">Manage Criminals</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link {% if request.endpoint == 'view_alerts' %}active{% endif %}" href="{{ url_for('view_alerts', _external=True) if 'view_alerts' in_app_url_rules else '#' }}">View Alerts</a>
+                        {% if 'view_alerts' in app_url_rules %}
+                            <a class="nav-link {% if request.endpoint == 'view_alerts' %}active{% endif %}" href="{{ url_for('view_alerts', _external=True) }}">View Alerts</a>
+                        {% else %}
+                            <a class="nav-link disabled" href="#" title="View Alerts route not available">View Alerts</a>
+                        {% endif %}
                     </li>
-                    <!-- Add other navigation items here -->
                 </ul>
             </div>
         </div>
@@ -51,27 +52,17 @@
         </div>
     </footer>
 
-    <!-- Bootstrap Bundle with Popper -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 
     <script>
-    // Small script to make sure alert links are generated safely if routes don't exist yet
-    // This is a bit of a hack for the current stage of development
-    document.addEventListener('DOMContentLoaded', function() {
-        const alertLink = document.querySelector('a[href*="view_alerts"]'); // Find the alerts link
-        if (alertLink && alertLink.getAttribute('href') === '#') {
-            // If the template rendered it as '#', it means the URL rule wasn't found.
-            // We can leave it as is, or disable it, or add a title.
-            // For now, just ensuring it doesn't break if 'view_alerts' isn't registered yet.
-        }
-
-        // A simple way to get Flask's url_for into JS if needed, not used here but useful:
-        // const viewAlertsUrl = {{ url_for('view_alerts', _external=True) | tojson | safe if 'view_alerts' in_app_url_rules else 'null' }};
-        // if(viewAlertsUrl && alertLink && alertLink.getAttribute('href') === '#') {
-        //    alertLink.setAttribute('href', viewAlertsUrl);
-        // }
-    });
+        document.addEventListener('DOMContentLoaded', function() {
+            const alertLink = document.querySelector('a[href="#"]');
+            if (alertLink) {
+                alertLink.title = 'View Alerts route not available';
+            }
+        });
     </script>
+
     {% block scripts %}{% endblock %}
 </body>
 </html>
