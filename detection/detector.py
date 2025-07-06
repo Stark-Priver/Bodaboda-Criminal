@@ -12,7 +12,7 @@ from datetime import datetime
 from db_utils import get_known_face_encodings, save_alert, get_criminal_id_by_name
 
 # GPIO settings
-BUZZER_PIN = 18  # GPIO pin for the buzzer (BCM mode)
+BUZZER_PIN = 26  # GPIO pin for the buzzer (BCM mode)
 BUZZER_DURATION = 5  # seconds
 
 # Attempt to import RPi.GPIO, fallback to mock if not available or not on RPi
