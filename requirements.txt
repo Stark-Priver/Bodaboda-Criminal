@@ -1,6 +1,6 @@
 opencv-python
 face_recognition
 Flask
-# RPi.GPIO
+RPi.GPIO
 numpy
 Pillow
