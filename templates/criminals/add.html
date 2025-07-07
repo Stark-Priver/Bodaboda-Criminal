@@ -15,10 +15,10 @@
         <textarea class="form-control" id="description" name="description" rows="3"></textarea>
     </div>
     <div class="mb-3">
-        <label for="photo" class="form-label">Photo <span class="text-danger">*</span></label>
-        <input type="file" class="form-control" id="photo" name="photo" accept="image/png, image/jpeg, image/gif" required onchange="previewImage(event)">
-        <div class="mt-2">
-            <img id="imagePreview" src="#" alt="Image Preview" class="image-preview" style="display:none;"/>
+        <label for="photos" class="form-label">Photos (select one or more) <span class="text-danger">*</span></label>
+        <input type="file" class="form-control" id="photos" name="photos" accept="image/png, image/jpeg, image/gif" required multiple onchange="updateFileCount(event)">
+        <div class="mt-2" id="filePreviewInfo">
+            <!-- JS will update this area -->
         </div>
     </div>
     <button type="submit" class="btn btn-success">Add Criminal</button>
@@ -28,19 +28,17 @@
 
 {% block scripts %}
 <script>
-function previewImage(event) {
-    const reader = new FileReader();
-    reader.onload = function(){
-        const output = document.getElementById('imagePreview');
-        output.src = reader.result;
-        output.style.display = 'block';
-    };
-    if (event.target.files[0]) {
-        reader.readAsDataURL(event.target.files[0]);
+function updateFileCount(event) {
+    const fileInput = event.target;
+    const previewInfo = document.getElementById('filePreviewInfo');
+    if (fileInput.files.length > 0) {
+        if (fileInput.files.length === 1) {
+            previewInfo.textContent = `Selected file: ${fileInput.files[0].name}`;
+        } else {
+            previewInfo.textContent = `${fileInput.files.length} files selected.`;
+        }
     } else {
-        const output = document.getElementById('imagePreview');
-        output.src = '#';
-        output.style.display = 'none';
+        previewInfo.textContent = '';
     }
 }
 </script>

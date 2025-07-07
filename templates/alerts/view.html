@@ -28,8 +28,8 @@
                 <td>{{ alert.terminal_id }}</td>
                 <td>{{ alert.criminal_name }}</td>
                 <td>
-                    {% if alert.criminal_photo_path %}
-                    <img src="{{ url_for('static', filename=alert.criminal_photo_path) }}"
+                    {% if alert.criminal_display_image_path %}
+                    <img src="{{ url_for('static', filename=alert.criminal_display_image_path) }}"
                          alt="{{ alert.criminal_name }}" class="img-thumbnail criminal-photo-thumbnail"
                          onerror="this.onerror=null; this.src='{{ url_for('static', filename='images/placeholder.png') }}';">
                     {% else %}

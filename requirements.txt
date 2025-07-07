@@ -5,3 +5,4 @@ RPi.GPIO
 sqlite3
 numpy
 Pillow
+Flask-Login

@@ -23,13 +23,13 @@
             {% for criminal in criminals %}
             <tr>
                 <td>
-                    {% if criminal.photo_path %}
-                    {# criminal.photo_path is now like "criminal_photos/image.jpg", suitable for url_for('static', ...) #}
-                    <img src="{{ url_for('static', filename=criminal.photo_path) }}"
+                    {% if criminal.display_image_path %}
+                    {# criminal.display_image_path is like "criminal_photos/image.jpg", suitable for url_for('static', ...) #}
+                    <img src="{{ url_for('static', filename=criminal.display_image_path) }}"
                          alt="{{ criminal.name }}" class="img-thumbnail criminal-photo-thumbnail"
                          onerror="this.onerror=null; this.src='{{ url_for('static', filename='images/placeholder.png') }}';">
                     {% else %}
-                    <img src="{{ url_for('static', filename='images/placeholder.png') }}" alt="No photo" class="img-thumbnail criminal-photo-thumbnail">
+                    <img src="{{ url_for('static', filename='images/placeholder.png') }}" alt="No photo available" class="img-thumbnail criminal-photo-thumbnail">
                     {% endif %}
                 </td>
                 <td>{{ criminal.name }}</td>
