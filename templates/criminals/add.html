@@ -1,32 +1,60 @@
 {% extends "layout.html" %}
 
-{% block title %}Add New Criminal - Boda Security{% endblock %}
+{% block title %}{{ title }} - Border Security{% endblock %}
 
 {% block content %}
-<h2>Add New Criminal</h2>
+<h2>{{ title }}</h2>
 <hr>
-<form method="POST" action="{{ url_for('add_criminal') }}" enctype="multipart/form-data">
+<form method="POST" enctype="multipart/form-data" novalidate>
+    {{ form.hidden_tag() }} {# CSRF token and other hidden fields #}
+
     <div class="mb-3">
-        <label for="name" class="form-label">Name <span class="text-danger">*</span></label>
-        <input type="text" class="form-control" id="name" name="name" required>
+        {{ form.name.label(class="form-label") }} <span class="text-danger">*</span>
+        {% if form.name.errors %}
+            {{ form.name(class="form-control is-invalid", id="name") }}
+            <div class="invalid-feedback">
+                {% for error in form.name.errors %}<span>{{ error }}</span>{% endfor %}
+            </div>
+        {% else %}
+            {{ form.name(class="form-control", id="name") }}
+        {% endif %}
     </div>
+
     <div class="mb-3">
-        <label for="description" class="form-label">Description</label>
-        <textarea class="form-control" id="description" name="description" rows="3"></textarea>
+        {{ form.description.label(class="form-label") }}
+        {% if form.description.errors %}
+            {{ form.description(class="form-control is-invalid", id="description", rows="3") }}
+            <div class="invalid-feedback">
+                {% for error in form.description.errors %}<span>{{ error }}</span>{% endfor %}
+            </div>
+        {% else %}
+            {{ form.description(class="form-control", id="description", rows="3") }}
+        {% endif %}
     </div>
+
     <div class="mb-3">
-        <label for="photo" class="form-label">Photo <span class="text-danger">*</span></label>
-        <input type="file" class="form-control" id="photo" name="photo" accept="image/png, image/jpeg, image/gif" required onchange="previewImage(event)">
+        {{ form.photo.label(class="form-label") }} <span class="text-danger">*</span>
+        {% if form.photo.errors %}
+            {{ form.photo(class="form-control is-invalid", id="photo", accept="image/png, image/jpeg, image/gif", onchange="previewImage(event)") }}
+            <div class="invalid-feedback">
+                {% for error in form.photo.errors %}<span>{{ error }}</span>{% endfor %}
+            </div>
+        {% else %}
+            {{ form.photo(class="form-control", id="photo", accept="image/png, image/jpeg, image/gif", onchange="previewImage(event)") }}
+        {% endif %}
+        <small class="form-text text-muted">Required. Allowed types: png, jpg, jpeg, gif. Face should be clear.</small>
         <div class="mt-2">
-            <img id="imagePreview" src="#" alt="Image Preview" class="image-preview" style="display:none;"/>
+            <img id="imagePreview" src="#" alt="Image Preview" class="image-preview" style="display:none; max-width: 200px; max-height: 200px;"/>
         </div>
     </div>
-    <button type="submit" class="btn btn-success">Add Criminal</button>
+
+    {{ form.submit(class="btn btn-success") }}
     <a href="{{ url_for('list_criminals') }}" class="btn btn-secondary">Cancel</a>
 </form>
 {% endblock %}
 
 {% block scripts %}
+{{ super() }} {# In case layout.html has scripts #}
 <script>
 function previewImage(event) {
     const reader = new FileReader();
@@ -43,5 +71,9 @@ function previewImage(event) {
         output.style.display = 'none';
     }
 }
+// Initialize preview if a file is already selected (e.g. validation error reloads page)
+// This is tricky with FileInputs as their value is not typically re-populated by browsers for security.
+// So, the preview might not show up automatically on a validation error if a file was previously selected.
+// The user would have to re-select the file.
 </script>
 {% endblock %}

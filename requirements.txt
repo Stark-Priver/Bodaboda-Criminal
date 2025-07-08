@@ -4,3 +4,7 @@ Flask
 RPi.GPIO
 numpy
 Pillow
+RPLCD
+Flask-Login
+Flask-WTF
+# Werkzeug is a Flask dependency, listed for clarity of use for hashing
