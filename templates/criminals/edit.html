@@ -1,47 +1,72 @@
 {% extends "layout.html" %}
 
-{% block title %}Edit Criminal - {{ criminal.name }}{% endblock %}
+{% block title %}{{ title }} - Border Security{% endblock %}
 
 {% block content %}
-<h2>Edit Criminal: {{ criminal.name }}</h2>
+<h2>{{ title }}: {{ criminal.name }}</h2>
 <hr>
-<form method="POST" action="{{ url_for('edit_criminal', criminal_id=criminal.id) }}" enctype="multipart/form-data">
+<form method="POST" enctype="multipart/form-data" novalidate>
+    {{ form.hidden_tag() }} {# CSRF token #}
+
     <div class="mb-3">
-        <label for="name" class="form-label">Name <span class="text-danger">*</span></label>
-        <input type="text" class="form-control" id="name" name="name" value="{{ criminal.name }}" required>
+        {{ form.name.label(class="form-label") }} <span class="text-danger">*</span>
+        {% if form.name.errors %}
+            {{ form.name(class="form-control is-invalid", id="name") }}
+            <div class="invalid-feedback">
+                {% for error in form.name.errors %}<span>{{ error }}</span>{% endfor %}
+            </div>
+        {% else %}
+            {{ form.name(class="form-control", id="name") }}
+        {% endif %}
     </div>
+
     <div class="mb-3">
-        <label for="description" class="form-label">Description</label>
-        <textarea class="form-control" id="description" name="description" rows="3">{{ criminal.description }}</textarea>
+        {{ form.description.label(class="form-label") }}
+        {% if form.description.errors %}
+            {{ form.description(class="form-control is-invalid", id="description", rows="3") }}
+            <div class="invalid-feedback">
+                {% for error in form.description.errors %}<span>{{ error }}</span>{% endfor %}
+            </div>
+        {% else %}
+            {{ form.description(class="form-control", id="description", rows="3") }}
+        {% endif %}
     </div>
 
     <div class="mb-3">
         <label class="form-label">Current Photo</label>
         <div>
             {% if criminal.photo_path %}
-            <img src="{{ url_for('static', filename=criminal.photo_path) }}" alt="{{ criminal.name }}" class="img-thumbnail mb-2" style="max-width: 200px; max-height: 200px; object-fit: cover;">
+                <img src="{{ url_for('static', filename=criminal.photo_path) }}" alt="Current photo of {{ criminal.name }}" class="img-thumbnail mb-2" style="max-width: 200px; max-height: 200px; object-fit: cover;">
             {% else %}
-            <p>No current photo available.</p>
-            <img src="{{ url_for('static', filename='images/placeholder.png') }}" alt="No photo" class="img-thumbnail mb-2" style="max-width: 200px; max-height: 200px; object-fit: cover;">
+                <p>No current photo available.</p>
+                <img src="{{ url_for('static', filename='images/placeholder.png') }}" alt="No photo placeholder" class="img-thumbnail mb-2" style="max-width: 200px; max-height: 200px; object-fit: cover;">
             {% endif %}
         </div>
     </div>
 
     <div class="mb-3">
-        <label for="photo" class="form-label">Upload New Photo (Optional)</label>
-        <input type="file" class="form-control" id="photo" name="photo" accept="image/png, image/jpeg, image/gif" onchange="previewNewImage(event)">
-        <small class="form-text text-muted">If you upload a new photo, it will replace the current one. A new face encoding will be generated.</small>
+        {{ form.photo.label(class="form-label") }} (Upload New Photo - Optional)
+        {% if form.photo.errors %}
+            {{ form.photo(class="form-control is-invalid", id="photo", accept="image/png, image/jpeg, image/gif", onchange="previewNewImage(event)") }}
+            <div class="invalid-feedback">
+                {% for error in form.photo.errors %}<span>{{ error }}</span>{% endfor %}
+            </div>
+        {% else %}
+            {{ form.photo(class="form-control", id="photo", accept="image/png, image/jpeg, image/gif", onchange="previewNewImage(event)") }}
+        {% endif %}
+        <small class="form-text text-muted">If you upload a new photo, it will replace the current one. A new face encoding will be generated. Allowed types: png, jpg, jpeg, gif.</small>
         <div class="mt-2">
-            <img id="newImagePreview" src="#" alt="New Image Preview" class="image-preview" style="display:none;"/>
+            <img id="newImagePreview" src="#" alt="New Image Preview" class="image-preview" style="display:none; max-width: 200px; max-height: 200px;"/>
         </div>
     </div>
 
-    <button type="submit" class="btn btn-primary">Save Changes</button>
+    {{ form.submit(class="btn btn-primary") }}
     <a href="{{ url_for('list_criminals') }}" class="btn btn-secondary">Cancel</a>
 </form>
 {% endblock %}
 
 {% block scripts %}
+{{ super() }}
 <script>
 function previewNewImage(event) {
     const reader = new FileReader();
