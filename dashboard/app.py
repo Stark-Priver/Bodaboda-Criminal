@@ -1,6 +1,6 @@
 import os
 import sqlite3
-import face_recognition
+# import face_recognition # Removed
 import numpy as np
 import pickle
 from flask import Flask, render_template, request, redirect, url_for, flash, g, send_from_directory
@@ -94,16 +94,15 @@ def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 def generate_face_encoding(image_path):
-    try:
-        image = face_recognition.load_image_file(image_path)
-        face_encodings = face_recognition.face_encodings(image)
-        if face_encodings:
-            return face_encodings[0]
-        else:
-            return None
-    except Exception as e:
-        print(f"Error generating face encoding for {image_path}: {e}")
-        return None
+    """
+    Simulates generating a face encoding.
+    In a real system, this would process the image to extract facial features.
+    Here, it returns a random 128-dimension numpy array.
+    The image_path is passed for API compatibility but not used for encoding itself.
+    """
+    print(f"SIMULATOR: Simulating face encoding for image: {image_path}")
+    # Return a random 128-dimensional vector, similar to what face_recognition produces
+    return np.random.rand(128)
 
 @app.context_processor
 def utility_processor():

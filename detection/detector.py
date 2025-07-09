@@ -1,7 +1,7 @@
 # detection/detector.py
 
 import cv2
-import face_recognition
+# import face_recognition # Removed
 import numpy as np
 import os
 import time
@@ -113,8 +113,63 @@ def old_setup_buzzer():
 def is_motion_detected():
     return GPIO.input(MOTION_SENSOR_PIN) == GPIO.HIGH
 
+# --- Face Detection Simulation ---
+FRAME_COUNT_FOR_SIMULATION = 0 # Global counter for simulation
+SIMULATE_DETECTION_INTERVAL = 150 # Simulate a detection roughly every 5 seconds (30fps * 5s)
+
+def simulate_face_locations(frame):
+    """
+    Simulates face locations. Returns a predefined bounding box periodically.
+    A real implementation would detect faces in the frame.
+    """
+    global FRAME_COUNT_FOR_SIMULATION
+    FRAME_COUNT_FOR_SIMULATION += 1
+
+    # Simulate a detection periodically
+    if FRAME_COUNT_FOR_SIMULATION % SIMULATE_DETECTION_INTERVAL == 0:
+        # Return a fixed bounding box (top, right, bottom, left)
+        # These are coordinates for the *small_frame*
+        h, w, _ = frame.shape
+        # Simulate a face in the center of the frame
+        # Ensure box is within frame dimensions if they are very small
+        top = max(0, h // 4)
+        right = min(w, w * 3 // 4)
+        bottom = min(h, h * 3 // 4)
+        left = max(0, w // 4)
+        if top >= bottom or left >= right: # if frame is too small, make a tiny valid box
+             return [(0,1,1,0)] if h > 0 and w > 0 else []
+        print("SIMULATOR: Simulating face detection.")
+        return [(top, right, bottom, left)]
+    return []
+
+# --- Face Comparison Simulation ---
+SIMULATE_MATCH_CHANCE = 0.05 # 5% chance to simulate a match with a known criminal per detected face
+
+def simulate_compare_faces(known_encodings, current_encoding):
+    """
+    Simulates comparing a detected face encoding against known encodings.
+    Randomly decides if a match occurs and with which known encoding.
+    Returns:
+        tuple: (match_index, distance)
+               match_index is the index in known_encodings if a match occurs, else None.
+               distance is a random float (0.0-1.0) if match_index is not None, else 1.0.
+    """
+    if not known_encodings:
+        return None, 1.0
+
+    # Check for a simulated match
+    if np.random.rand() < SIMULATE_MATCH_CHANCE:
+        # If match, pick a random known criminal to be the "match"
+        match_index = np.random.randint(0, len(known_encodings))
+        simulated_distance = np.random.uniform(0.1, 0.5) # Simulate a "good" match distance
+        print(f"SIMULATOR: Simulated a match with known_criminal_index {match_index} (distance: {simulated_distance:.2f})")
+        return match_index, simulated_distance
+
+    return None, 1.0 # No match
+
+
 def trigger_buzzer_and_lcd_alert(criminal_name: str):
-    print(f"MATCH FOUND: {criminal_name}! Triggering buzzer and LCD alert.")
+    print(f"SIMULATOR: MATCH FOUND FOR: {criminal_name}! Triggering buzzer and LCD alert.") # Updated print
     lcd_utils.display_message("CRIMINAL DETECTED!", criminal_name[:lcd_utils.DEFAULT_LCD_COLS], duration=BUZZER_DURATION) # Display for buzzer duration
 
     GPIO.output(BUZZER_PIN, GPIO.HIGH)
@@ -141,12 +196,16 @@ def process_frame_for_faces(frame, known_face_encodings, known_criminal_names, l
     """
     # scale_factor = 0.5 # Now from config
     small_frame = cv2.resize(frame, (0, 0), fx=config.DETECTOR_SCALE_FACTOR, fy=config.DETECTOR_SCALE_FACTOR)
-    rgb_small_frame = cv2.cvtColor(small_frame, cv2.COLOR_BGR2RGB)
+    # rgb_small_frame = cv2.cvtColor(small_frame, cv2.COLOR_BGR2RGB) # Not needed for simulation
 
-    face_locations = face_recognition.face_locations(rgb_small_frame, model="hog")
-    face_encodings = face_recognition.face_encodings(rgb_small_frame, face_locations)
+    # Simulate face locations
+    face_locations = simulate_face_locations(small_frame)
+    # Simulate face encodings (will be done in the next step, for now, let's prepare for it)
+    # face_encodings = face_recognition.face_encodings(rgb_small_frame, face_locations)
+    face_encodings = [np.random.rand(128) for _ in face_locations] # Placeholder for simulated encodings
 
     detected_match_details = [] # To store info about matches in this frame
+    scale_factor = config.DETECTOR_SCALE_FACTOR # Define scale_factor locally
 
     for (top_s, right_s, bottom_s, left_s), face_encoding in zip(face_locations, face_encodings):
         name_match = "Unknown"
@@ -156,27 +215,26 @@ def process_frame_for_faces(frame, known_face_encodings, known_criminal_names, l
         left = int(left_s / scale_factor)
 
         if known_face_encodings:
-            matches = face_recognition.compare_faces(known_face_encodings, face_encoding, tolerance=0.6)
-            face_distances = face_recognition.face_distance(known_face_encodings, face_encoding)
+            # Simulate comparing the current face_encoding with all known_face_encodings
+            match_index, distance = simulate_compare_faces(known_face_encodings, face_encoding)
 
-            if True in matches:
-                best_match_index = np.argmin(face_distances)
-                if matches[best_match_index]:
-                    name_match = known_criminal_names[best_match_index]
-                    current_time = time.time()
+            if match_index is not None: # If a simulated match occurred
+                name_match = known_criminal_names[match_index]
+                current_time = time.time()
 
-                    is_new_match = False
-                    if name_match not in last_match_time or \
-                       (current_time - last_match_time[name_match]) >= COOLDOWN_PERIOD:
-                        print(f"MATCH FOUND: {name_match}")
-                        last_match_time[name_match] = current_time
-                        is_new_match = True
-                    else:
-                        print(f"Matched {name_match} again within cooldown period. Displaying, but not re-triggering actions.")
+                is_new_match = False
+                if name_match not in last_match_time or \
+                   (current_time - last_match_time[name_match]) >= COOLDOWN_PERIOD:
+                    # This print is now inside trigger_buzzer_and_lcd_alert
+                    # print(f"MATCH FOUND: {name_match}")
+                    last_match_time[name_match] = current_time
+                    is_new_match = True
+                else:
+                    print(f"SIMULATOR: Matched {name_match} again within cooldown period. Displaying, but not re-triggering actions.")
 
-                    # Save image and alert only for new matches
-                    if is_new_match:
-                        timestamp_str = datetime.now().strftime("%Y%m%d_%H%M%S")
+                # Save image and alert only for new matches
+                if is_new_match:
+                    timestamp_str = datetime.now().strftime("%Y%m%d_%H%M%S")
                         filename = f"{name_match.replace(' ', '_')}_{timestamp_str}.jpg"
                         filepath = os.path.join(DETECTED_FACES_DIR, filename)
 
