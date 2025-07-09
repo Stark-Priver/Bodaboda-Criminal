@@ -142,6 +142,19 @@ def add_criminal():
             flash('Invalid file type.', 'danger')
 
     return render_template('criminals/add.html', title='Add Criminal', form=form)
+@app.route('/criminals/delete/<int:criminal_id>', methods=['POST'])
+def delete_criminal(criminal_id):
+    # Delete criminal and associated alerts from database
+    try:
+        # Delete alerts associated with this criminal
+        execute_db("DELETE FROM alerts WHERE criminal_id = ?", (criminal_id,))
+        # Delete the criminal record
+        execute_db("DELETE FROM criminals WHERE id = ?", (criminal_id,))
+        flash('Criminal and associated alerts deleted successfully.', 'success')
+    except Exception as e:
+        flash(f'Error deleting criminal: {e}', 'danger')
+    return redirect(url_for('list_criminals'))
+
 
 @app.route('/alerts')
 def view_alerts():
