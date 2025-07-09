@@ -63,6 +63,12 @@ def utility_processor():
     return dict(in_app_url_rules=[rule.endpoint for rule in app.url_map.iter_rules()])
 
 # --- Routes (No Authentication) ---
+@app.context_processor
+def inject_user():
+    class DummyUser:
+        is_authenticated = True
+        username = "admin"
+    return dict(current_user=DummyUser())
 
 @app.route('/')
 def index():
