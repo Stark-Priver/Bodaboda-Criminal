@@ -1,5 +1,6 @@
 import os
 import sqlite3
+import socket
 import numpy as np
 import pickle
 from flask import Flask, render_template, request, redirect, url_for, flash, g, send_from_directory
@@ -9,6 +10,17 @@ from flask_login import LoginManager, UserMixin, login_user, logout_user, login_
 from flask_wtf import FlaskForm
 from wtforms import StringField, PasswordField, SubmitField, FileField, TextAreaField
 from wtforms.validators import DataRequired, Length, Optional
+
+# --- LCD (Optional) ---
+try:
+    from RPLCD.i2c import CharLCD
+    lcd = CharLCD('PCF8574', 0x27)
+    lcd.clear()
+    lcd.write_string("Starting server...")
+    LCD_ENABLED = True
+except Exception as e:
+    print("LCD not enabled:", e)
+    LCD_ENABLED = False
 
 # --- App Configuration ---
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -55,7 +67,7 @@ class CriminalForm(FlaskForm):
     photo = FileField('Photo')
     submit = SubmitField('Submit Criminal')
 
-# --- Database Helper Functions ---
+# --- DB Helpers ---
 def get_db():
     db = getattr(g, '_database', None)
     if db is None:
@@ -84,6 +96,27 @@ def execute_db(sql, args=()):
     cur.close()
     return last_id
 
+# --- Init Admin ---
+def ensure_admin():
+    admin = query_db("SELECT * FROM admin_users WHERE username = 'admin'", one=True)
+    if not admin:
+        hashed_pw = generate_password_hash("admin")
+        execute_db("INSERT INTO admin_users (username, password_hash) VALUES (?, ?)", ('admin', hashed_pw))
+        print("Admin user created with username 'admin' and password 'admin'")
+
+# --- LCD IP Display ---
+def show_ip_on_lcd():
+    if not LCD_ENABLED:
+        return
+    try:
+        hostname = socket.gethostname()
+        ip = socket.gethostbyname(hostname)
+        lcd.clear()
+        lcd.write_string("IP: " + ip[:16])
+    except Exception as e:
+        print("Could not get IP:", e)
+
+# --- Utility Functions ---
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
@@ -195,5 +228,8 @@ def serve_detected_face_image(filename):
 
 if __name__ == '__main__':
     if not os.path.exists(DATABASE_PATH):
-        print(f"Database not found at {DATABASE_PATH}. Please run `python database_setup.py` from the project root.")
+        print(f"Database not found at {DATABASE_PATH}. Please run `python database_setup.py`.")
+    else:
+        ensure_admin()
+        show_ip_on_lcd()
     app.run(debug=True, host='0.0.0.0', port=5001)
