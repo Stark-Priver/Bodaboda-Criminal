@@ -78,6 +78,10 @@ def logout():
 @app.route('/')
 def index():
     return redirect(url_for('list_criminals'))
+@app.route('/criminals/edit/<int:criminal_id>', methods=['GET', 'POST'])
+def edit_criminal(criminal_id):
+    return f"<h1>Edit criminal {criminal_id} page not implemented yet.</h1>"
+
 
 @app.route('/criminals')
 def list_criminals():
