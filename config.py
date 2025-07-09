@@ -1,48 +1,199 @@
-# --- General Configuration ---
-DATABASE_NAME = "facial_recognition.db" # In 'data/' subdirectory
-UPLOAD_FOLDER_NAME = "criminal_photos" # In 'static/' subdirectory for criminal profile images
-DETECTED_FACES_SUBDIR = "detected_faces" # In 'data/' subdirectory for faces captured during alerts
+import os
+import sqlite3
+import numpy as np
+import pickle
+from flask import Flask, render_template, request, redirect, url_for, flash, g, send_from_directory
+from werkzeug.utils import secure_filename
+from werkzeug.security import generate_password_hash, check_password_hash
+from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
+from flask_wtf import FlaskForm
+from wtforms import StringField, PasswordField, SubmitField, FileField, TextAreaField
+from wtforms.validators import DataRequired, Length, Optional
 
-# --- Detection Script Configuration (detector.py) ---
-TERMINAL_ID = "BDR_TERM_01" # Unique ID for this detection terminal
+# --- App Configuration ---
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+DATA_DIR = os.path.join(PROJECT_ROOT, "data")
+DATABASE_PATH = os.path.join(DATA_DIR, "facial_recognition.db")
+STATIC_FOLDER_PATH = os.path.join(PROJECT_ROOT, 'static')
+UPLOAD_FOLDER_NAME = "criminal_photos"
+UPLOAD_FOLDER_PATH = os.path.join(STATIC_FOLDER_PATH, UPLOAD_FOLDER_NAME)
+ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
+os.makedirs(UPLOAD_FOLDER_PATH, exist_ok=True)
+os.makedirs(DATA_DIR, exist_ok=True)
 
-# GPIO Pins (BCM Mode)
-BUZZER_PIN = 26
-MOTION_SENSOR_PIN = 4
+app = Flask(__name__, template_folder=os.path.join(PROJECT_ROOT, 'templates'), static_folder=STATIC_FOLDER_PATH)
+app.config['SECRET_KEY'] = os.environ.get('FLASK_SECRET_KEY', 'dev_secret_key_MUST_BE_CHANGED_123!')
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER_PATH
+app.config['DATABASE'] = DATABASE_PATH
 
-# Durations and Delays (seconds)
-BUZZER_DURATION = 5
-MOTION_DETECT_DELAY = 1      # Time to wait after motion stops before checking again or idling
-FACE_DETECTION_DURATION = 30 # How long to run face detection after motion is initially detected
-COOLDOWN_PERIOD = 30         # Seconds before re-triggering alert for the same detected person
+# --- Flask-Login Setup ---
+login_manager = LoginManager()
+login_manager.init_app(app)
+login_manager.login_view = 'login'
+login_manager.login_message_category = 'info'
 
-# Frame processing
-DETECTOR_SCALE_FACTOR = 0.5 # Factor to resize frames for faster processing in detector.py
+class User(UserMixin):
+    def __init__(self, id, username):
+        self.id = id
+        self.username = username
 
-# --- LCD Configuration (lcd_utils.py) ---
-LCD_ENABLED = True # Master switch for LCD features
-# I2C Settings for LCD
-LCD_I2C_EXPANDER = 'PCF8574'
-LCD_I2C_ADDRESS = 0x27  # Common I2C address, check with 'sudo i2cdetect -y 1'
-LCD_I2C_PORT = 1        # Raspberry Pi I2C port (0 for older Pis, 1 for newer)
-# LCD Dimensions
-LCD_COLS = 16
-LCD_ROWS = 2
-LCD_AUTO_LINEBREAKS = True
+@login_manager.user_loader
+def load_user(user_id):
+    user_data = query_db("SELECT * FROM admin_users WHERE id = ?", (user_id,), one=True)
+    if user_data:
+        return User(id=user_data['id'], username=user_data['username'])
+    return None
 
-# Path for the flag file to check if IP has been displayed on LCD
-IP_DISPLAYED_FLAG_FILENAME = ".ip_displayed_flag" # Will be stored in 'data/' subdirectory
+class LoginForm(FlaskForm):
+    username = StringField('Username', validators=[DataRequired(), Length(min=3, max=50)])
+    password = PasswordField('Password', validators=[DataRequired()])
+    submit = SubmitField('Login')
 
-# --- Dashboard Configuration (dashboard/app.py) ---
-# SECRET_KEY is best set via environment variable (see DEPLOYMENT_RASPBERRY_PI.md)
-# For development, a default is used in app.py if ENV var is not set.
-ALLOWED_IMAGE_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
+class CriminalForm(FlaskForm):
+    name = StringField('Name', validators=[DataRequired(), Length(min=2, max=100)])
+    description = TextAreaField('Description', validators=[Optional(), Length(max=500)])
+    photo = FileField('Photo')
+    submit = SubmitField('Submit Criminal')
 
-# --- Database Setup (database_setup.py) ---
-DEFAULT_ADMIN_USERNAME = "admin"
-DEFAULT_ADMIN_PASSWORD = "password" # User will be prompted to change this.
-DEFAULT_ALERT_TERMINAL_ID = "UNKNOWN_TERMINAL" # Default terminal_id in alerts table schema
+# --- Database Helper Functions ---
+def get_db():
+    db = getattr(g, '_database', None)
+    if db is None:
+        db = g._database = sqlite3.connect(app.config['DATABASE'])
+        db.row_factory = sqlite3.Row
+    return db
 
-# Note: Absolute paths for UPLOAD_FOLDER_PATH, DATABASE_PATH etc. are constructed
-# dynamically in the respective scripts (app.py, db_utils.py) using PROJECT_ROOT.
-# This config file stores relative names or settings.
+@app.teardown_appcontext
+def close_connection(exception):
+    db = getattr(g, '_database', None)
+    if db is not None:
+        db.close()
+
+def query_db(query, args=(), one=False):
+    cur = get_db().execute(query, args)
+    rv = cur.fetchall()
+    cur.close()
+    return (rv[0] if rv else None) if one else rv
+
+def execute_db(sql, args=()):
+    conn = get_db()
+    cur = conn.cursor()
+    cur.execute(sql, args)
+    conn.commit()
+    last_id = cur.lastrowid
+    cur.close()
+    return last_id
+
+def allowed_file(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+def generate_face_encoding(image_path):
+    print(f"SIMULATOR: Simulating face encoding for image: {image_path}")
+    return np.random.rand(128)
+
+@app.context_processor
+def utility_processor():
+    return dict(in_app_url_rules=[rule.endpoint for rule in app.url_map.iter_rules()])
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if current_user.is_authenticated:
+        return redirect(url_for('list_criminals'))
+    form = LoginForm()
+    if form.validate_on_submit():
+        user_data = query_db("SELECT * FROM admin_users WHERE username = ?", (form.username.data,), one=True)
+        if user_data and check_password_hash(user_data['password_hash'], form.password.data):
+            user_obj = User(id=user_data['id'], username=user_data['username'])
+            login_user(user_obj)
+            flash('Logged in successfully.', 'success')
+            next_page = request.args.get('next')
+            return redirect(next_page or url_for('list_criminals'))
+        else:
+            flash('Login Unsuccessful. Please check username and password', 'danger')
+    return render_template('login.html', title='Login', form=form)
+
+@app.route('/logout')
+@login_required
+def logout():
+    logout_user()
+    flash('You have been logged out.', 'info')
+    return redirect(url_for('login'))
+
+@app.route('/')
+@login_required
+def index():
+    return redirect(url_for('list_criminals'))
+
+@app.route('/criminals')
+@login_required
+def list_criminals():
+    criminals_data = query_db("SELECT id, name, description, photo_path FROM criminals ORDER BY name")
+    return render_template('criminals/list.html', title='Manage Criminals', criminals=criminals_data)
+
+@app.route('/criminals/add', methods=['GET', 'POST'])
+@login_required
+def add_criminal():
+    form = CriminalForm()
+    if form.validate_on_submit():
+        name = form.name.data
+        description = form.description.data
+        photo = request.files.get('photo')
+
+        if not photo or photo.filename == '':
+            flash('Photo is required for new criminal.', 'danger')
+            return render_template('criminals/add.html', title='Add Criminal', form=form)
+
+        if photo and allowed_file(photo.filename):
+            filename = secure_filename(photo.filename)
+            base, ext = os.path.splitext(filename)
+            counter, unique_filename = 1, filename
+            while os.path.exists(os.path.join(app.config['UPLOAD_FOLDER'], unique_filename)):
+                unique_filename = f"{base}_{counter}{ext}"
+                counter += 1
+
+            filepath = os.path.join(app.config['UPLOAD_FOLDER'], unique_filename)
+            photo.save(filepath)
+
+            face_encoding_array = generate_face_encoding(filepath)
+            if face_encoding_array is None:
+                flash('No face detected in uploaded photo.', 'danger')
+                os.remove(filepath)
+                return render_template('criminals/add.html', title='Add Criminal', form=form)
+
+            serialized_encoding = pickle.dumps(face_encoding_array)
+            db_photo_path = os.path.join(UPLOAD_FOLDER_NAME, unique_filename)
+
+            try:
+                execute_db("INSERT INTO criminals (name, description, photo_path, face_encoding) VALUES (?, ?, ?, ?)",
+                           (name, description, db_photo_path, serialized_encoding))
+                flash(f'Criminal "{name}" added successfully!', 'success')
+                return redirect(url_for('list_criminals'))
+            except Exception as e:
+                flash(f'Database error: {e}', 'danger')
+                os.remove(filepath)
+        else:
+            flash('Invalid file type.', 'danger')
+
+    return render_template('criminals/add.html', title='Add Criminal', form=form)
+
+@app.route('/alerts')
+@login_required
+def view_alerts():
+    alerts_data = query_db("""
+        SELECT a.id, a.timestamp, a.detected_face_photo_path, a.terminal_id,
+               c.name as criminal_name, c.photo_path as criminal_photo_path
+        FROM alerts a
+        JOIN criminals c ON a.criminal_id = c.id
+        ORDER BY a.timestamp DESC
+    """)
+    return render_template('alerts/view.html', alerts=alerts_data)
+
+@app.route('/data/detected_faces/<filename>')
+@login_required
+def serve_detected_face_image(filename):
+    return send_from_directory(os.path.join(PROJECT_ROOT, "data", "detected_faces"), filename)
+
+if __name__ == '__main__':
+    if not os.path.exists(DATABASE_PATH):
+        print(f"Database not found at {DATABASE_PATH}. Please run `python database_setup.py` from the project root.")
+    app.run(debug=True, host='0.0.0.0', port=5001)
