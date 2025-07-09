@@ -5,11 +5,6 @@ import pickle
 import socket
 from flask import Flask, render_template, request, redirect, url_for, flash, g, send_from_directory
 from werkzeug.utils import secure_filename
-from werkzeug.security import generate_password_hash, check_password_hash
-from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
-from flask_wtf import FlaskForm
-from wtforms import StringField, PasswordField, SubmitField, FileField, TextAreaField
-from wtforms.validators import DataRequired, Length, Optional
 
 # --- App Configuration ---
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -26,35 +21,6 @@ app = Flask(__name__, template_folder=os.path.join(PROJECT_ROOT, 'templates'), s
 app.config['SECRET_KEY'] = os.environ.get('FLASK_SECRET_KEY', 'dev_secret_key_MUST_BE_CHANGED_123!')
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER_PATH
 app.config['DATABASE'] = DATABASE_PATH
-
-# --- Flask-Login Setup ---
-login_manager = LoginManager()
-login_manager.init_app(app)
-login_manager.login_view = 'login'
-login_manager.login_message_category = 'info'
-
-class User(UserMixin):
-    def __init__(self, id, username):
-        self.id = id
-        self.username = username
-
-@login_manager.user_loader
-def load_user(user_id):
-    user_data = query_db("SELECT * FROM admin_users WHERE id = ?", (user_id,), one=True)
-    if user_data:
-        return User(id=user_data['id'], username=user_data['username'])
-    return None
-
-class LoginForm(FlaskForm):
-    username = StringField('Username', validators=[DataRequired(), Length(min=3, max=50)])
-    password = PasswordField('Password', validators=[DataRequired()])
-    submit = SubmitField('Login')
-
-class CriminalForm(FlaskForm):
-    name = StringField('Name', validators=[DataRequired(), Length(min=2, max=100)])
-    description = TextAreaField('Description', validators=[Optional(), Length(max=500)])
-    photo = FileField('Photo')
-    submit = SubmitField('Submit Criminal')
 
 # --- Database Helper Functions ---
 def get_db():
@@ -96,44 +62,29 @@ def generate_face_encoding(image_path):
 def utility_processor():
     return dict(in_app_url_rules=[rule.endpoint for rule in app.url_map.iter_rules()])
 
-@app.route('/login', methods=['GET', 'POST'])
-def login():
-    if current_user.is_authenticated:
-        return redirect(url_for('list_criminals'))
-    form = LoginForm()
-    if form.validate_on_submit():
-        user_data = query_db("SELECT * FROM admin_users WHERE username = ?", (form.username.data,), one=True)
-        if user_data and check_password_hash(user_data['password_hash'], form.password.data):
-            user_obj = User(id=user_data['id'], username=user_data['username'])
-            login_user(user_obj)
-            flash('Logged in successfully.', 'success')
-            next_page = request.args.get('next')
-            return redirect(next_page or url_for('list_criminals'))
-        else:
-            flash('Login Unsuccessful. Please check username and password', 'danger')
-    return render_template('login.html', title='Login', form=form)
-
-@app.route('/logout')
-@login_required
-def logout():
-    logout_user()
-    flash('You have been logged out.', 'info')
-    return redirect(url_for('login'))
+# --- Routes (No Authentication) ---
 
 @app.route('/')
-@login_required
 def index():
     return redirect(url_for('list_criminals'))
 
 @app.route('/criminals')
-@login_required
 def list_criminals():
     criminals_data = query_db("SELECT id, name, description, photo_path FROM criminals ORDER BY name")
     return render_template('criminals/list.html', title='Manage Criminals', criminals=criminals_data)
 
 @app.route('/criminals/add', methods=['GET', 'POST'])
-@login_required
 def add_criminal():
+    from flask_wtf import FlaskForm
+    from wtforms import StringField, FileField, TextAreaField, SubmitField
+    from wtforms.validators import DataRequired, Length, Optional
+
+    class CriminalForm(FlaskForm):
+        name = StringField('Name', validators=[DataRequired(), Length(min=2, max=100)])
+        description = TextAreaField('Description', validators=[Optional(), Length(max=500)])
+        photo = FileField('Photo')
+        submit = SubmitField('Submit Criminal')
+
     form = CriminalForm()
     if form.validate_on_submit():
         name = form.name.data
@@ -178,7 +129,6 @@ def add_criminal():
     return render_template('criminals/add.html', title='Add Criminal', form=form)
 
 @app.route('/alerts')
-@login_required
 def view_alerts():
     alerts_data = query_db("""
         SELECT a.id, a.timestamp, a.detected_face_photo_path, a.terminal_id,
@@ -190,7 +140,6 @@ def view_alerts():
     return render_template('alerts/view.html', alerts=alerts_data)
 
 @app.route('/data/detected_faces/<filename>')
-@login_required
 def serve_detected_face_image(filename):
     return send_from_directory(os.path.join(PROJECT_ROOT, "data", "detected_faces"), filename)
 
@@ -199,6 +148,7 @@ def ensure_admin():
     admin = query_db("SELECT * FROM admin_users WHERE username = 'admin'", one=True)
     if not admin:
         print("Creating default admin user with username 'admin' and password 'admin'. Please change this password immediately.")
+        from werkzeug.security import generate_password_hash
         hashed_pw = generate_password_hash("admin")
         execute_db("INSERT INTO admin_users (username, password_hash) VALUES (?, ?)", ("admin", hashed_pw))
 
@@ -206,7 +156,6 @@ def ensure_admin():
 def get_local_ip():
     try:
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        # Doesn't have to be reachable, just used for local IP detection
         s.connect(("8.8.8.8", 80))
         ip = s.getsockname()[0]
         s.close()
