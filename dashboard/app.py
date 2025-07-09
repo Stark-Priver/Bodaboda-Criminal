@@ -69,6 +69,11 @@ def inject_user():
         is_authenticated = True
         username = "admin"
     return dict(current_user=DummyUser())
+@app.route('/logout')
+def logout():
+    # Just redirect to homepage or criminals list
+    return redirect(url_for('list_criminals'))
+
 
 @app.route('/')
 def index():
